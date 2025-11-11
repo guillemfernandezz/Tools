@@ -75,6 +75,57 @@ def get_cims_from_stylx(style_path, verbose=True):                              
 
     return all_symbol_cims
 
+# ... (aquí va tu función get_cims_from_stylx) ...
+
+# --- NUEVA FUNCIÓN AÑADIDA ---
+def actualizar_cims_en_stylx(style_path, cims_a_actualizar):
+    """
+    Actualiza símbolos en un archivo .stylx.
+    ¡ESTA FUNCIÓN MODIFICA EL ARCHIVO!
+
+    Args:
+        style_path (str): La ruta al .stylx que se va a modificar.
+        cims_a_actualizar (dict): Un diccionario {item_id: nuevo_cim_data} 
+        con los símbolos a actualizar.
+    """
+    conn = None
+    try:
+        conn = sqlite3.connect(style_path)
+        cursor = conn.cursor()
+        
+        update_data = [] # Lista de tuplas para executemany
+        
+        for item_id, cim_data in cims_a_actualizar.items():
+            # Convertir el diccionario de Python de nuevo a un string JSON
+            # ensure_ascii=False permite caracteres UTF-8 (tildes, etc.)
+            json_string = json.dumps(cim_data, ensure_ascii=False)
+            
+            # Añadimos (string_json, id) a la lista
+            update_data.append((json_string, item_id))
+
+        # executemany es mucho más rápido que hacer un UPDATE por cada símbolo
+        cursor.executemany("UPDATE ITEMS SET CONTENT = ? WHERE ID = ?", update_data)
+        
+        # Guardar (confirmar) los cambios en la base de datos
+        conn.commit()
+        
+        if conn:
+            conn.close()
+            
+    except sqlite3.Error as e:
+        print(f"Error de SQLite al actualizar: {e}")
+        if conn:
+            conn.rollback() # Deshacer cambios si hay error
+            conn.close()
+        raise # Propagar el error
+    except Exception as e:
+        print(f"Error inesperado al actualizar: {e}")
+        if conn:
+            conn.rollback()
+            conn.close()
+        raise
+
+
 # Esta parte es una buena práctica.
 # Significa que este código solo se ejecuta si corres este script directamente,
 # no cuando es importado por otro script.
