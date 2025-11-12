@@ -1,5 +1,29 @@
 # 2_cim_parser.py
-import copy # Usaremos esto para copiar la plantilla
+import copy
+from stylx_utils import get_cims_from_stylx # ¡Necesitamos esto!
+
+def get_template_layer(template_stylx_path, template_symbol_name):
+    """
+    Carga el .stylx de plantilla y extrae la capa CIMVectorMarker.
+    """
+    print(f"[DEBUG] Cargando símbolos desde la plantilla: {template_stylx_path}")
+    template_cims = get_cims_from_stylx(template_stylx_path, verbose=False)
+    
+    for item_id, item_info in template_cims.items():
+        if item_info.get('name') == template_symbol_name:
+            print(f"[DEBUG] Símbolo plantilla '{template_symbol_name}' encontrado.")
+            cim_data = item_info.get('cim_data', {})
+            symbol_layers = cim_data.get('symbolLayers', [])
+            
+            for layer in symbol_layers:
+                if layer.get('type') == 'CIMVectorMarker':
+                    print("[DEBUG] ¡Capa 'CIMVectorMarker' encontrada y extraída como plantilla maestra!")
+                    # Devolvemos la capa de plantilla
+                    return layer 
+                    
+    print(f"[DEBUG] ¡FALLO! No se encontró un 'CIMVectorMarker' en el símbolo '{template_symbol_name}'.")
+    return None
+
 
 def extraer_datos_hatch(capa_hatch):
     """
@@ -39,105 +63,46 @@ def extraer_datos_hatch(capa_hatch):
     return datos
 
 
-def build_svg_marker_layer(hatch_color, separation, hatch_width):
+def build_svg_marker_layer(plantilla_maestra, hatch_color, separation, hatch_width):
     """
-    Construye la capa CIMVectorMarker completa, basándose en la
-    plantilla extraída de '_plantilla_svg.json'.
+    Toma la plantilla maestra del CIMVectorMarker y le inyecta
+    los valores extraídos del hatch.
     
-    VERSIÓN V3-TEST:
-    - size: 18.0 (Grande, para asegurar línea continua)
-    - separation: x1.5 (Ajuste intermedio)
-    - width: /2 (Más fino)
+    VERSIÓN V4-FINAL (Basada en sidl.stylx):
+    - size: 12.0 (Fiel a la plantilla 'sidl.stylx')
+    - separation: x1.0 (Fiel a la plantilla 'sidl.stylx')
+    - width: /2 (Tu petición de "más finas")
     """
     print(f"    [DEBUG] Ejecutando 'build_svg_marker_layer' con color: {hatch_color}")
-
-    # Esta es la plantilla COMPLETA de la capa CIMVectorMarker
-    # Copiada directamente de tu archivo _plantilla_svg.json
-    plantilla_vector_marker = {
-      "type": "CIMVectorMarker",
-      "enable": True,
-      "name": "Capa SVG Ajustada (V3)", 
-      "anchorPointUnits": "Relative",
-      "dominantSizeAxis3D": "Y",
-      "size": 18.0, # <-- ¡CAMBIO 1: Volvemos a 18.0 para asegurar la superposición!
-      "billboardMode3D": "FaceNearPlane",
-      "markerPlacement": {
-        "type": "CIMMarkerPlacementInsidePolygon",
-        "gridType": "Fixed",
-        "randomness": 0, 
-        "seed": 938511,
-        "stepX": 16, # Valor que se reemplazará
-        "stepY": 16, # Valor que se reemplazará
-        "clipping": "ClipAtBoundary"
-      },
-      "frame": { "xmin": 0.0, "ymin": 0.0, "xmax": 5.19, "ymax": 5.19 },
-      "markerGraphics": [
-        {
-          "type": "CIMMarkerGraphic",
-          "geometry": { 
-            "rings": [ [ [ 5.12, 0.3 ], [ 4.87, 0.06 ], [ 4.87, 0.06 ], [ 0.06, 4.87 ], [ 0.3, 5.12 ], [ 5.12, 0.3 ] ] ]
-          },
-          "symbol": {
-            "type": "CIMPolygonSymbol",
-            "symbolLayers": [
-              {
-                "type": "CIMSolidFill", 
-                "enable": True,
-                "color": { "type": "CIMCMYKColor", "values": [ 100, 25, 100, 0, 100 ] } # Se reemplazará
-              }
-            ],
-            "angleAlignment": "Map"
-          }
-        },
-        {
-          "type": "CIMMarkerGraphic",
-          "geometry": { 
-            "rings": [ [ [ 4.87, 0.06 ], [ 5.12, 0.3 ], [ 0.3, 5.12 ], [ 0.06, 4.87 ], [ 4.87, 0.06 ], [ 4.87, 0.06 ] ] ]
-          },
-          "symbol": {
-            "type": "CIMPolygonSymbol",
-            "symbolLayers": [
-              {
-                "type": "CIMSolidStroke", 
-                "enable": True,
-                "capStyle": "Butt",
-                "joinStyle": "Miter",
-                "lineStyle3D": "Strip",
-                "miterLimit": 4,
-                "width": 0.2, # Se reemplazará
-                "color": { "type": "CIMRGBColor", "values": [ 0, 0, 0, 100 ] } # Se reemplazará
-              }
-            ],
-            "angleAlignment": "Map"
-          }
-        }
-      ],
-      "scaleSymbolsProportionally": True,
-      "respectFrame": True
-    }
     
-    nueva_capa_svg = copy.deepcopy(plantilla_vector_marker)
+    nueva_capa_svg = copy.deepcopy(plantilla_maestra)
     
-    # --- Inyectamos los valores extraídos ---
+    # --- 1. Inyectar Tamaño ---
+    # Usamos el 'size' de tu plantilla manual 'sidl.stylx' 
+    nueva_capa_svg["size"] = 12.0 
     
-    # 1. Inyectar separación (¡CAMBIO 2: Separación intermedia!)
-    nueva_capa_svg["markerPlacement"]["stepX"] = separation * 1.5
-    nueva_capa_svg["markerPlacement"]["stepY"] = separation * 1.5
+    # --- 2. Inyectar Separación ---
+    # Usamos la separación ORIGINAL, sin multiplicador, 
+    # tal como en tu plantilla 'sidl.stylx' 
+    nueva_capa_svg["markerPlacement"]["stepX"] = separation
+    nueva_capa_svg["markerPlacement"]["stepY"] = separation
     
-    # 2. Inyectar color en el RELLENO (markerGraphics[0])
+    # --- 3. Inyectar Grosor (Más fino) ---
+    nuevo_ancho = hatch_width / 2.0
+    
+    # --- 4. Inyectar Colores ---
+    # Relleno (markerGraphics[0])
     nueva_capa_svg["markerGraphics"][0]["symbol"]["symbolLayers"][0]["color"] = hatch_color
     
-    # 3. Inyectar EL MISMO color en el TRAZO (markerGraphics[1])
+    # Trazo (markerGraphics[1])
     nueva_capa_svg["markerGraphics"][1]["symbol"]["symbolLayers"][0]["color"] = hatch_color
-    
-    # 4. Inyectar ancho de línea en el TRAZO (¡CAMBIO 3: Más fino!)
-    nueva_capa_svg["markerGraphics"][1]["symbol"]["symbolLayers"][0]["width"] = hatch_width / 2.0
+    nueva_capa_svg["markerGraphics"][1]["symbol"]["symbolLayers"][0]["width"] = nuevo_ancho
 
-    print(f"    [DEBUG] Plantilla JSON (Fill+Stroke) (V3_TEST) construida y rellenada con éxito.")
+    print(f"    [DEBUG] Plantilla JSON (FINAL) construida. Size: 12.0, Sep: {separation}, Ancho: {nuevo_ancho}")
     
     return nueva_capa_svg
 
 
 if __name__ == "__main__":
     print("Este script es una librería.")
-    print("Por favor, ejecute 'actualizar_estilo_main.py' para ejecutar la modificación.")
+    print("Por favor, ejecute 'aplicar_plantilla_final.py' para ejecutar la modificación.")
