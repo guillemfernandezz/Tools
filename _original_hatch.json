@@ -1,0 +1,53 @@
+{
+  "type": "CIMPolygonSymbol",
+  "symbolLayers": [
+    {
+      "type": "CIMHatchFill",
+      "enable": true,
+      "colorLocked": true,
+      "lineSymbol": {
+        "type": "CIMLineSymbol",
+        "symbolLayers": [
+          {
+            "type": "CIMSolidStroke",
+            "enable": true,
+            "capStyle": "Round",
+            "joinStyle": "Round",
+            "lineStyle3D": "Strip",
+            "miterLimit": 10,
+            "width": 0.2,
+            "height3D": 1,
+            "anchor3D": "Center",
+            "color": {
+              "type": "CIMCMYKColor",
+              "values": [
+                100,
+                25,
+                100,
+                0,
+                100
+              ]
+            }
+          }
+        ]
+      },
+      "rotation": 135,
+      "separation": 5.66928
+    },
+    {
+      "type": "CIMSolidFill",
+      "enable": true,
+      "color": {
+        "type": "CIMCMYKColor",
+        "values": [
+          17,
+          0,
+          34,
+          28,
+          100
+        ]
+      }
+    }
+  ],
+  "angleAlignment": "Map"
+}

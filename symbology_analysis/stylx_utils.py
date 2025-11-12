@@ -1,68 +1,52 @@
 # 1_stylx_utils.py
-import sqlite3                                                                                              # Para conectarse y leer la base de datos SQLite. Un .stylx es una base de datos de este tipo.
-import json                                                                                                 # Para traducir texto en formato JSON a diccionarios y listas de Python. La info de CIM está en JSON.                                                   
-import os                                                                                                   # Para verificar si el path que le metemos existe o no
+import sqlite3
+import json  # <-- ¡ASEGÚRATE DE QUE ESTÉ IMPORTADO!
+import os
 
-def get_cims_from_stylx(style_path, verbose=True):                                                          # Función. Verbose=True para que imprima mensajes en consola de progreso. Sise pone False, no imprime nada.
+def get_cims_from_stylx(style_path, verbose=True):
     """
     Lee un archivo .stylx de ArcGIS Pro y extrae todas las definiciones
     de símbolos CIM.
-
-    Args:
-        style_path (str): La ruta completa al archivo .stylx.
-        verbose (bool): Si es True, imprime el progreso en la consola.
-
-    Returns:
-        dict: Un diccionario donde la clave es el ID del ítem en la BD
-        y el valor es un diccionario con 'name' y 'cim_data'.
-        Ej: {1: {'name': 'Mi Simbolo', 'cim_data': {...}}}
     """
-    all_symbol_cims = {}                                                                                    # Diccionario vacío para guardar los CIMs encontrados. Al final se devuelve este diccionario y es con lo que se trabaja.
+    all_symbol_cims = {}
     
     if verbose:
         print(f"Leyendo base de datos de estilo: {style_path}")
 
-    if not os.path.exists(style_path):                                                                      # Comprueba que el path exista
+    if not os.path.exists(style_path):
         if verbose:
             print(f"¡ERROR! No se encuentra el archivo en esta ruta.")
-        return all_symbol_cims                                                                              # Si no existe, devuelve el diccionario vacío y la funcion termina aquí.                                                                    
+        return all_symbol_cims
 
     try:
-        conn = sqlite3.connect(style_path)                                                                  # Conecta con la base de datos SQLite.
-        conn.text_factory = str                                                                             # Le dice a la conexion que cuando lea texto lo trate como un str de Python. Asi evitamos problemas con caracteres raros, como Bytes.
-        cursor = conn.cursor()                                                                              # Un cursor es un "puntero" o herramienta que se usa para ejecutar comandos (consultas) SQL y recibir resultados.
+        conn = sqlite3.connect(style_path)
+        conn.text_factory = str
+        cursor = conn.cursor()
 
-        cursor.execute("SELECT ID, NAME, CONTENT FROM ITEMS")                                               # Le decimos al cursor que ejecute esta consulta SQL. Le pedimos el ID, nombre y contenido (CIM en JSON) de la tabla ITEMS.
-        rows = cursor.fetchall()                                                                            # fetchall() obtiene todas las filas resultantes de la consulta y las guarda en 'rows', que es una lista de tuplas.
+        cursor.execute("SELECT ID, NAME, CONTENT FROM ITEMS")
+        rows = cursor.fetchall()
         
         if verbose:
             print(f"Se encontraron {len(rows)} filas en total. Analizando...")
 
-        decoder = json.JSONDecoder()                                                                        # Esta herramienta nos permite convertir texto JSON en diccionarios y listas de Python.
+        decoder = json.JSONDecoder()
 
         for row in rows:
-            item_id, name, cim_json_string = row                                                            # Cada row es una tupla con (ID, NAME, CONTENT). Aquí las desempaquetamos en variables separadas.
+            item_id, name, cim_json_string = row
             
-            if cim_json_string and '"type":"CIM' in cim_json_string and 'Symbol"' in cim_json_string:       # Primer filtro: Comprobamos que el contenido no esté vacio y que en el texto JSON "type":"CIM" aparezca.
-                try:                                                                                        # La tabla ITEMS contiene todo tipo de ítems, no solo símbolos. Por eso hacemos este filtro previo.                                     
-                    cim_data, _ = decoder.raw_decode(cim_json_string.strip())                               # Usamos el decoder para convertir el texto JSON en un diccionario/lista de Python. strip() elimina espacios en blanco al inicio y final.
-                    """ 
-                        - ¿Por qué raw_decode y no json.loads? json.loads exige que el string sea un JSON perfecto y nada más. raw_decode es más robusto: parsea el primer objeto JSON válido que encuentra y simplemente ignora si hay "basura" o texto extra después. 
-                        Es más seguro para este caso.
-
-                        - cim_data, _: raw_decode devuelve dos cosas: el objeto parseado (cim_data, que será un diccionario) y un número (el índice donde terminó de leer). Como no te importa ese número, lo asignas a _ (una convención en Python para "ignorar")
-                        este valor").
-                    """
-                    all_symbol_cims[item_id] = {                                                            # Si el try funciona guardamos el CIM en el diccionario all_symbol_cims. La clave sera un ID ej: 123 y el valor sera otro diccionario con 'name' y 'cim_data'.
+            if cim_json_string and '"type":"CIM' in cim_json_string and 'Symbol"' in cim_json_string:
+                try:
+                    cim_data, _ = decoder.raw_decode(cim_json_string.strip())
+                    all_symbol_cims[item_id] = {
                         'name': name,
                         'cim_data': cim_data
                     }
                     if verbose:
                         print(f"  -> ¡ÉXITO! Símbolo parseado (ID: {item_id}): {name}")
-                except json.JSONDecodeError as e:                                                           # JSONDecodeError se lanza si el texto JSON está mal formado y no se puede parsear.
+                except json.JSONDecodeError as e:
                     if verbose:
                         print(f"  -> ERROR (ID: {item_id}): El JSON está mal formado: {e}")
-        conn.close()                                                                                        # Cerramos la conexión a la base de datos.                               
+        conn.close()
 
     except sqlite3.Error as e:
         print(f"Error de SQLite: {e}")
@@ -75,19 +59,13 @@ def get_cims_from_stylx(style_path, verbose=True):                              
 
     return all_symbol_cims
 
-# ... (aquí va tu función get_cims_from_stylx) ...
-
-# --- NUEVA FUNCIÓN AÑADIDA ---
+# --- FUNCIÓN MODIFICADA CON DEPURACIÓN ---
 def actualizar_cims_en_stylx(style_path, cims_a_actualizar):
     """
     Actualiza símbolos en un archivo .stylx.
     ¡ESTA FUNCIÓN MODIFICA EL ARCHIVO!
-
-    Args:
-        style_path (str): La ruta al .stylx que se va a modificar.
-        cims_a_actualizar (dict): Un diccionario {item_id: nuevo_cim_data} 
-        con los símbolos a actualizar.
     """
+    print(f"\n[DEBUG] Iniciando 'actualizar_cims_en_stylx' para {len(cims_a_actualizar)} items.")
     conn = None
     try:
         conn = sqlite3.connect(style_path)
@@ -97,38 +75,40 @@ def actualizar_cims_en_stylx(style_path, cims_a_actualizar):
         
         for item_id, cim_data in cims_a_actualizar.items():
             # Convertir el diccionario de Python de nuevo a un string JSON
-            # ensure_ascii=False permite caracteres UTF-8 (tildes, etc.)
             json_string = json.dumps(cim_data, ensure_ascii=False)
             
-            # Añadimos (string_json, id) a la lista
+            # --- DEBUG ---
+            if item_id == 2: # Solo para el primer item (mc_Cagl)
+                print(f"[DEBUG] JSON que se escribirá para ID {item_id} (primeros 500 caracteres):")
+                print(json_string[:500] + "...")
+            # --- FIN DEBUG ---
+
             update_data.append((json_string, item_id))
 
-        # executemany es mucho más rápido que hacer un UPDATE por cada símbolo
+        print(f"[DEBUG] Preparando consulta 'executemany' para {len(update_data)} actualizaciones.")
         cursor.executemany("UPDATE ITEMS SET CONTENT = ? WHERE ID = ?", update_data)
         
-        # Guardar (confirmar) los cambios en la base de datos
+        print("[DEBUG] Cambios enviados a la BD. Ejecutando 'commit'...")
         conn.commit()
+        print("[DEBUG] 'Commit' exitoso.")
         
         if conn:
             conn.close()
+            print("[DEBUG] Conexión a la BD cerrada.")
             
     except sqlite3.Error as e:
-        print(f"Error de SQLite al actualizar: {e}")
+        print(f"[DEBUG] ¡Error de SQLite al actualizar!: {e}")
         if conn:
-            conn.rollback() # Deshacer cambios si hay error
+            conn.rollback()
             conn.close()
-        raise # Propagar el error
+        raise
     except Exception as e:
-        print(f"Error inesperado al actualizar: {e}")
+        print(f"[DEBUG] ¡Error inesperado al actualizar!: {e}")
         if conn:
             conn.rollback()
             conn.close()
         raise
 
-
-# Esta parte es una buena práctica.
-# Significa que este código solo se ejecuta si corres este script directamente,
-# no cuando es importado por otro script.
 if __name__ == "__main__":
     print("Este script es una librería.")
     print("Por favor, ejecute 'analizar_estilo_main.py' para analizar un estilo.")

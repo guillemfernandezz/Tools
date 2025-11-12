@@ -1,0 +1,199 @@
+{
+  "type": "CIMPolygonSymbol",
+  "symbolLayers": [
+    {
+      "type": "CIMVectorMarker",
+      "enable": true,
+      "name": "New_ae98ff29-120f-4a06-8098-b4cc0d61f4f5",
+      "anchorPointUnits": "Relative",
+      "dominantSizeAxis3D": "Y",
+      "size": 18,
+      "billboardMode3D": "FaceNearPlane",
+      "markerPlacement": {
+        "type": "CIMMarkerPlacementInsidePolygon",
+        "gridType": "Fixed",
+        "randomness": 100,
+        "seed": 938511,
+        "stepX": 16,
+        "stepY": 16,
+        "clipping": "ClipAtBoundary"
+      },
+      "frame": {
+        "xmin": 0.0,
+        "ymin": 0.0,
+        "xmax": 5.19,
+        "ymax": 5.19
+      },
+      "markerGraphics": [
+        {
+          "type": "CIMMarkerGraphic",
+          "geometry": {
+            "rings": [
+              [
+                [
+                  5.12,
+                  0.3
+                ],
+                [
+                  4.87,
+                  0.06
+                ],
+                [
+                  4.87,
+                  0.06
+                ],
+                [
+                  0.06,
+                  4.87
+                ],
+                [
+                  0.3,
+                  5.12
+                ],
+                [
+                  5.12,
+                  0.3
+                ]
+              ]
+            ],
+            "spatialReference": {
+              "wkid": null
+            }
+          },
+          "symbol": {
+            "type": "CIMPolygonSymbol",
+            "symbolLayers": [
+              {
+                "type": "CIMSolidFill",
+                "enable": true,
+                "color": {
+                  "type": "CIMCMYKColor",
+                  "values": [
+                    100,
+                    25,
+                    100,
+                    0,
+                    100
+                  ]
+                }
+              }
+            ],
+            "angleAlignment": "Map"
+          }
+        },
+        {
+          "type": "CIMMarkerGraphic",
+          "geometry": {
+            "rings": [
+              [
+                [
+                  4.87,
+                  0.06
+                ],
+                [
+                  5.12,
+                  0.3
+                ],
+                [
+                  0.3,
+                  5.12
+                ],
+                [
+                  0.06,
+                  4.87
+                ],
+                [
+                  4.87,
+                  0.06
+                ],
+                [
+                  4.87,
+                  0.06
+                ]
+              ]
+            ],
+            "spatialReference": {
+              "wkid": null
+            }
+          },
+          "symbol": {
+            "type": "CIMPolygonSymbol",
+            "symbolLayers": [
+              {
+                "type": "CIMSolidStroke",
+                "enable": true,
+                "capStyle": "Butt",
+                "joinStyle": "Miter",
+                "lineStyle3D": "Strip",
+                "miterLimit": 4,
+                "width": 0.0006324999849312007,
+                "height3D": 1,
+                "anchor3D": "Center",
+                "color": {
+                  "type": "CIMRGBColor",
+                  "values": [
+                    0,
+                    0,
+                    0,
+                    100
+                  ]
+                }
+              }
+            ],
+            "angleAlignment": "Map"
+          }
+        }
+      ],
+      "scaleSymbolsProportionally": true,
+      "respectFrame": true,
+      "clippingPath": {
+        "type": "CIMClippingPath",
+        "clippingType": "Intersect",
+        "path": {
+          "rings": [
+            [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                5.19,
+                0.0
+              ],
+              [
+                5.19,
+                5.19
+              ],
+              [
+                0.0,
+                5.19
+              ],
+              [
+                0.0,
+                0.0
+              ]
+            ]
+          ],
+          "spatialReference": {
+            "wkid": null
+          }
+        }
+      }
+    },
+    {
+      "type": "CIMSolidFill",
+      "enable": true,
+      "color": {
+        "type": "CIMCMYKColor",
+        "values": [
+          17,
+          0,
+          34,
+          28,
+          100
+        ]
+      }
+    }
+  ],
+  "angleAlignment": "Map"
+}
