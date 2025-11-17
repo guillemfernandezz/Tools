@@ -25,48 +25,44 @@ def extraer_datos_hatch(capa_hatch):
     return datos
 
 
-def build_geometric_marker_layer(hatch_color, separation, hatch_width, offset_ratio=0.0, custom_width=None):
+def build_geometric_marker_layer(hatch_color, separation, hatch_width, offset_ratio=0.0, custom_width=None, separation_factor=1.42):
     """
     Construye un CIMVectorMarker con geometría generada.
     
-    CAMBIOS V10:
-    - Soporte para 'custom_width' (grosor fijo manual).
-    - Offset corregido: Solo desplaza en X para evitar solapamiento en diagonales.
+    CAMBIOS V11:
+    - 'separation_factor': Multiplicador para corregir la densidad (Default 1.42).
     """
-    print(f"    [DEBUG] Generando Geometría (Offset Ratio: {offset_ratio})...")
+    print(f"    [DEBUG] Generando Geometría (Offset: {offset_ratio}, Factor Sep: {separation_factor})...")
 
-    # 1. AJUSTE DE SEPARACIÓN
-    # Mantenemos el 1.5 que te gustó, o el 1.0 de la plantilla. 
-    # Si quieres que sea idéntico a tu plantilla 'sidl', debería ser 1.0, 
-    # pero dijiste que el anterior estaba "casi" bien. Lo dejaré en 1.0 para ser fiel a 'sidl'.
-    step = separation 
+    # 1. AJUSTE DE SEPARACIÓN (MATEMÁTICO)
+    # Multiplicamos la separación original por el factor (idealmente 1.4142 para diagonales)
+    step = separation * separation_factor
     
-    # 2. CÁLCULO DEL OFFSET (CORREGIDO PARA MRC)
-    # Solo desplazamos en X. Si desplazamos X e Y, movemos la línea a lo largo de su propio eje.
+    # 2. CÁLCULO DEL OFFSET
+    # El desplazamiento debe ser proporcional al NUEVO paso (step)
     move_x = step * offset_ratio
-    move_y = 0 # No desplazamos Y para asegurar el intercalado horizontal
+    move_y = 0 
     
     # 3. GEOMETRÍA MATEMÁTICA (Diagonal '\')
+    # Extendemos un 10% para asegurar solapamiento y evitar líneas a trazos
     pad = step * 0.1
     x1, y1 = -pad, step + pad
     x2, y2 = step + pad, -pad
     path_coords = [ [x1, y1], [x2, y2] ]
     
-    # 4. AJUSTE DE GROSOR (LÓGICA NUEVA)
+    # 4. AJUSTE DE GROSOR
     if custom_width is not None:
         line_width = custom_width
-        print(f"    [DEBUG] Usando grosor personalizado: {line_width}")
     else:
         line_width = hatch_width / 2.0
-        print(f"    [DEBUG] Usando grosor calculado: {line_width}")
     
     plantilla_geometrica = {
       "type": "CIMVectorMarker",
       "enable": True,
-      "name": "Diagonal Generada V10",
+      "name": "Diagonal Generada V11",
       "anchorPointUnits": "Relative",
       "dominantSizeAxis3D": "Y",
-      "size": step,
+      "size": step, # El tamaño de la caja sigue al paso
       "billboardMode3D": "FaceNearPlane",
       "colorLocked": True,
       
@@ -76,12 +72,8 @@ def build_geometric_marker_layer(hatch_color, separation, hatch_width, offset_ra
         "randomness": 0,
         "stepX": step,
         "stepY": step,
-        
-        # --- OFFSET CORREGIDO ---
         "offsetX": move_x,
-        "offsetY": move_y, 
-        # ------------------------
-        
+        "offsetY": move_y,
         "clipping": "ClipAtBoundary"
       },
       "frame": { "xmin": 0.0, "ymin": 0.0, "xmax": step, "ymax": step },
