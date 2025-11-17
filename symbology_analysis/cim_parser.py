@@ -1,104 +1,106 @@
 # 2_cim_parser.py
 import copy
-from stylx_utils import get_cims_from_stylx # ¡Necesitamos esto!
+from stylx_utils import get_cims_from_stylx 
 
-def get_template_layer(template_stylx_path, template_symbol_name):
-    """
-    Carga el .stylx de plantilla y extrae la capa CIMVectorMarker.
-    """
-    print(f"[DEBUG] Cargando símbolos desde la plantilla: {template_stylx_path}")
-    template_cims = get_cims_from_stylx(template_stylx_path, verbose=False)
-    
-    for item_id, item_info in template_cims.items():
-        if item_info.get('name') == template_symbol_name:
-            print(f"[DEBUG] Símbolo plantilla '{template_symbol_name}' encontrado.")
-            cim_data = item_info.get('cim_data', {})
-            symbol_layers = cim_data.get('symbolLayers', [])
-            
-            for layer in symbol_layers:
-                if layer.get('type') == 'CIMVectorMarker':
-                    print("[DEBUG] ¡Capa 'CIMVectorMarker' encontrada y extraída como plantilla maestra!")
-                    # Devolvemos la capa de plantilla
-                    return layer 
-                    
-    print(f"[DEBUG] ¡FALLO! No se encontró un 'CIMVectorMarker' en el símbolo '{template_symbol_name}'.")
-    return None
+# ¡Esta función ya no es necesaria!
+# def get_template_layer(...):
+#    ...
 
-
-def extraer_datos_hatch(capa_hatch):
+def extraer_color_hatch(capa_hatch):
     """
-    Extrae el objeto de color CMYK, la separación Y el ancho de línea
+    Extrae únicamente el objeto de color CMYK
     de una capa CIMHatchFill.
     """
-    print("    [DEBUG] Ejecutando 'extraer_datos_hatch'...")
-    datos = {'color': None, 'separation': None, 'width': 0.2} 
+    print("    [DEBUG] Ejecutando 'extraer_color_hatch'...")
     
     try:
-        datos['separation'] = capa_hatch.get('separation')
-        print(f"    [DEBUG] Separación extraída: {datos['separation']}")
-        
         line_symbol = capa_hatch.get('lineSymbol')
         if line_symbol:
             line_layers = line_symbol.get('symbolLayers')
             if line_layers and isinstance(line_layers, list) and len(line_layers) > 0:
                 stroke_layer = line_layers[0] 
-                datos['color'] = stroke_layer.get('color')
-                datos['width'] = stroke_layer.get('width', 0.2) 
-                print(f"    [DEBUG] Objeto de color extraído: {datos['color']}")
-                print(f"    [DEBUG] Ancho de línea extraído: {datos['width']}")
+                color = stroke_layer.get('color')
+                print(f"    [DEBUG] Objeto de color extraído: {color}")
+                return color
             else:
                 print("    [DEBUG] 'line_layers' está vacío o no es una lista.")
         else:
             print("    [DEBUG] No se encontró 'lineSymbol'.")
 
     except Exception as e:
-        print(f"    [DEBUG] Error crítico en 'extraer_datos_hatch': {e}")
+        print(f"    [DEBUG] Error crítico en 'extraer_color_hatch': {e}")
         pass 
 
-    if not datos['color']:
-        print("    [DEBUG] ¡FALLO! No se pudo extraer el color.")
-    if not datos['separation']:
-        print("    [DEBUG] ¡FALLO! No se pudo extraer la separación.")
-        
-    return datos
+    print("    [DEBUG] ¡FALLO! No se pudo extraer el color.")
+    return None
 
 
-def build_svg_marker_layer(plantilla_maestra, hatch_color, separation, hatch_width):
+def build_marker_layer_from_hybrid_template(hatch_color):
     """
-    Toma la plantilla maestra del CIMVectorMarker y le inyecta
-    los valores extraídos del hatch.
-    
-    VERSIÓN V4-FINAL (Basada en sidl.stylx):
-    - size: 12.0 (Fiel a la plantilla 'sidl.stylx')
-    - separation: x1.0 (Fiel a la plantilla 'sidl.stylx')
-    - width: /2 (Tu petición de "más finas")
+    Construye la capa CIMVectorMarker usando la GEOMETRÍA
+    de '_plantilla_svg.json' (para compatibilidad VTPK)
+    pero con los PARÁMETROS de 'sidl.stylx' (para la apariencia).
     """
-    print(f"    [DEBUG] Ejecutando 'build_svg_marker_layer' con color: {hatch_color}")
+    print(f"    [DEBUG] Ejecutando 'build_marker_layer_from_hybrid_template' con color: {hatch_color}")
+
+    # Plantilla basada en _plantilla_svg.json 
+    plantilla_hibrida = {
+      "type": "CIMVectorMarker",
+      "enable": True,
+      "name": "Capa SVG Híbrida (VTPK)", 
+      "anchorPointUnits": "Relative",
+      "dominantSizeAxis3D": "Y",
+      "billboardMode3D": "FaceNearPlane",
+      "markerPlacement": {
+        "type": "CIMMarkerPlacementInsidePolygon",
+        "gridType": "Fixed", # ¡Importante para VTPK!
+        "clipping": "ClipAtBoundary"
+      },
+      "markerGraphics": [
+        {
+          "type": "CIMMarkerGraphic",
+          # Geometría DIAGONAL (de _plantilla_svg.json)
+          "geometry": { 
+            "rings": [ [ [ 5.12, 0.3 ], [ 4.87, 0.06 ], [ 4.87, 0.06 ], [ 0.06, 4.87 ], [ 0.3, 5.12 ], [ 5.12, 0.3 ] ] ]
+          },
+          "symbol": {
+            "type": "CIMPolygonSymbol",
+            "symbolLayers": [ { "type": "CIMSolidFill", "enable": True } ]
+          }
+        },
+        {
+          "type": "CIMMarkerGraphic",
+          "geometry": { 
+            "rings": [ [ [ 4.87, 0.06 ], [ 5.12, 0.3 ], [ 0.3, 5.12 ], [ 0.06, 4.87 ], [ 4.87, 0.06 ], [ 4.87, 0.06 ] ] ]
+          },
+          "symbol": {
+            "type": "CIMPolygonSymbol",
+            "symbolLayers": [ { "type": "CIMSolidStroke", "enable": True } ]
+          }
+        }
+      ],
+      "scaleSymbolsProportionally": True,
+      "respectFrame": True
+    }
     
-    nueva_capa_svg = copy.deepcopy(plantilla_maestra)
+    # --- Inyectamos los valores ---
     
-    # --- 1. Inyectar Tamaño ---
-    # Usamos el 'size' de tu plantilla manual 'sidl.stylx' 
-    nueva_capa_svg["size"] = 12.0 
+    # 1. Parámetros de 'sidl.stylx'  (Tú petición de "más finas" y separación)
+    nueva_capa_svg = copy.deepcopy(plantilla_hibrida)
     
-    # --- 2. Inyectar Separación ---
-    # Usamos la separación ORIGINAL, sin multiplicador, 
-    # tal como en tu plantilla 'sidl.stylx' 
-    nueva_capa_svg["markerPlacement"]["stepX"] = separation
-    nueva_capa_svg["markerPlacement"]["stepY"] = separation
+    nueva_capa_svg["size"] = 12.0
+    nueva_capa_svg["markerPlacement"]["stepX"] = 9.0
+    nueva_capa_svg["markerPlacement"]["stepY"] = 9.0
     
-    # --- 3. Inyectar Grosor (Más fino) ---
-    nuevo_ancho = hatch_width / 2.0
-    
-    # --- 4. Inyectar Colores ---
-    # Relleno (markerGraphics[0])
+    # 2. Relleno (markerGraphics[0])
     nueva_capa_svg["markerGraphics"][0]["symbol"]["symbolLayers"][0]["color"] = hatch_color
     
-    # Trazo (markerGraphics[1])
-    nueva_capa_svg["markerGraphics"][1]["symbol"]["symbolLayers"][0]["color"] = hatch_color
-    nueva_capa_svg["markerGraphics"][1]["symbol"]["symbolLayers"][0]["width"] = nuevo_ancho
+    # 3. Trazo (markerGraphics[1])
+    stroke_layer = nueva_capa_svg["markerGraphics"][1]["symbol"]["symbolLayers"][0]
+    stroke_layer["color"] = hatch_color
+    stroke_layer["width"] = 0.1 # Grosor de 0.1 de 'sidl.stylx' 
 
-    print(f"    [DEBUG] Plantilla JSON (FINAL) construida. Size: 12.0, Sep: {separation}, Ancho: {nuevo_ancho}")
+    print(f"    [DEBUG] Plantilla JSON (HÍBRIDA) construida. Size: 12.0, Sep: 9.0, Ancho: 0.1")
     
     return nueva_capa_svg
 

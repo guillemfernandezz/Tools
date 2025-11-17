@@ -3,37 +3,29 @@ import os
 import shutil
 import json
 from stylx_utils import get_cims_from_stylx, actualizar_cims_en_stylx
-from cim_parser import extraer_datos_hatch, get_template_layer, build_svg_marker_layer
+# Importamos las nuevas funciones de cim_parser
+from cim_parser import extraer_color_hatch, build_marker_layer_from_hybrid_template
 
 def main():
-    print("[DEBUG] --- INICIANDO SCRIPT 'aplicar_plantilla_final.py' ---")
+    print("[DEBUG] --- INICIANDO SCRIPT 'aplicar_plantilla_final.py' (Versión V6_HIBRIDA) ---")
     
     # --- CONFIGURACIÓN ---
     style_path_original = r"C:\Users\becari.g.fernandez\Desktop\treballs\00_simbologia\geologia-territorial-50000-geologic-v3r0_living_atlas.stylx"
-    style_path_plantilla = r"C:\Users\becari.g.fernandez\Downloads\sidl.stylx"
-    nombre_simbolo_plantilla = "ant_rebaixats_visor"
     
+    # ¡¡YA NO NECESITAMOS EL 'sidl.stylx' !!
+    # Todos los parámetros están codificados en cim_parser.py
+
     ruta_base, nombre_ext = os.path.splitext(style_path_original)
-    # ¡NUEVO NOMBRE DE ARCHIVO DE SALIDA!
-    style_path_copia = f"{ruta_base}_MODIFICADO_V4_TEST{nombre_ext}"
+    style_path_copia = f"{ruta_base}FINALV6{nombre_ext}"
     # ---------------------
 
-    # --- 1. Cargar la Plantilla Maestra ---
-    print(f"Cargando capa de plantilla desde: {style_path_plantilla}")
-    plantilla_svg_layer = get_template_layer(style_path_plantilla, nombre_simbolo_plantilla)
-    
-    if not plantilla_svg_layer:
-        print(f"¡ERROR FATAL! No se pudo encontrar la capa 'CIMVectorMarker' en el símbolo '{nombre_simbolo_plantilla}' dentro de '{style_path_plantilla}'.")
-        return
-    print("-> Plantilla 'CIMVectorMarker' cargada con éxito.")
-
-    # --- 2. Preparar el archivo de destino ---
+    # --- 1. Preparar el archivo de destino ---
     print(f"Accediendo al estilo original: {style_path_original}")
     if not os.path.exists(style_path_original):
         print("¡ERROR! No se encuentra el .stylx original. Abortando.")
         return
 
-    print(f"Creando copia de seguridad del estilo para la ejecución V4_TEST...")
+    print(f"Creando copia de seguridad del estilo para la ejecución V6_HIBRIDA...")
     try:
         shutil.copy(style_path_original, style_path_copia)
         print(f"Copia creada en: {style_path_copia}")
@@ -41,7 +33,7 @@ def main():
         print(f"¡ERROR! No se pudo crear la copia. ¿Está el .stylx abierto en ArcGIS Pro? {e}")
         return
 
-    # --- 3. Cargar y Procesar Símbolos ---
+    # --- 2. Cargar y Procesar Símbolos ---
     all_cims = get_cims_from_stylx(style_path_copia, verbose=False) 
     if not all_cims:
         print("No se cargaron símbolos del estilo.")
@@ -76,18 +68,16 @@ def main():
             
             if capa_tipo == 'CIMHatchFill':
                 print("    [DEBUG] Encontrada capa CIMHatchFill.")
-                datos_hatch = extraer_datos_hatch(capa)
+                hatch_color = extraer_color_hatch(capa)
                 
-                if datos_hatch['color'] and datos_hatch['separation'] is not None:
-                    nueva_capa_svg = build_svg_marker_layer(
-                        plantilla_maestra=plantilla_svg_layer,
-                        hatch_color=datos_hatch['color'],
-                        separation=datos_hatch['separation'],
-                        hatch_width=datos_hatch['width']
+                if hatch_color:
+                    # Construimos la capa SVG usando la plantilla híbrida
+                    nueva_capa_svg = build_marker_layer_from_hybrid_template(
+                        hatch_color=hatch_color
                     )
                     nuevas_capas.append(nueva_capa_svg)
                     simbolo_modificado = True
-                    print(f"    [DEBUG] REEMPLAZO por CIMVectorMarker programado.")
+                    print(f"    [DEBUG] REEMPLAZO por CIMVectorMarker (Híbrido) programado.")
                 else:
                     nuevas_capas.append(capa) 
                     print(f"    [DEBUG] ¡ERROR! No se pudieron extraer datos. Se mantiene el hatch original.")
@@ -108,7 +98,7 @@ def main():
             if nombre_simbolo not in simbolos_modificados_nombres:
                 simbolos_modificados_nombres.append(nombre_simbolo)
 
-    # --- 4. Escribir en la Base de Datos ---
+    # --- 3. Escribir en la Base de Datos ---
     if not cims_a_actualizar:
         print("\n--- Proceso Terminado ---")
         print("No se encontraron símbolos con 'CIMHatchFill' para modificar.")
