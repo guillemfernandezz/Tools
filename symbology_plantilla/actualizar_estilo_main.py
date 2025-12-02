@@ -1,53 +1,54 @@
 # actualizar_estilo_main.py
 import os
 import shutil
-import base64
-import json
-import sqlite3
-import re 
 from stylx_utils import get_cims_from_stylx, actualizar_cims_en_stylx
-from cim_parser import extraer_datos_hatch, extraer_parametros_plantilla, build_svg_marker_with_params
+from cim_parser import extraer_datos_hatch, extraer_parametros_plantilla, parse_svg_geometry, build_svg_geometry_marker
 
-def convertir_svg_a_base64_y_limpiar(svg_path):
-    print(f"[DEBUG] Procesando SVG: {svg_path}")
+def leer_contenido_svg(svg_path):
     try:
         with open(svg_path, 'r', encoding='utf-8') as f:
-            svg_content = f.read()
-        # Limpieza de estilos
-        svg_content_cleaned = re.sub(r'\s(fill|stroke|style)=["\'][^"\']*["\']', '', svg_content)
-        svg_bytes = svg_content_cleaned.encode('utf-8')
-        base64_bytes = base64.b64encode(svg_bytes)
-        return f"data:image/svg+xml;base64,{base64_bytes.decode('utf-8')}"
+            return f.read()
     except Exception as e:
-        print(f"¡ERROR SVG!: {e}")
+        print(f"¡Error leyendo archivo SVG!: {e}")
         return None
 
 def main():
-    print("[DEBUG] --- INICIANDO SCRIPT (V_FINAL_SVG_PLANTILLA) ---")
+    print("[DEBUG] --- INICIANDO SCRIPT (V15 - PARSER GEOMETRÍA SVG) ---")
     
     # --- CONFIGURACIÓN ---
     style_path_original = r"C:\Users\becari.g.fernandez\Desktop\treballs\00_simbologia\geologia-territorial-50000-geologic-v3r0_living_atlas.stylx"
     
-    # Ruta al SVG
+    # Tu SVG
     svg_path = r"C:\Users\becari.g.fernandez\Desktop\treballs\00_simbologia\dades\geologia-territorial-50000-geologic\ICGC_Geologia1_U+007A.svg"
     
-    # Ruta al Stylx de Plantilla
+    # Tu Plantilla
     style_path_plantilla = r"C:\Users\becari.g.fernandez\Desktop\treballs\00_simbologia\test.stylx"
-    # Nombre del símbolo maestro en esa plantilla
-    nombre_simbolo_plantilla = "ant_rebaixats_visor" # o "ant_rebaixats_visor"
+    nombre_simbolo_plantilla = "ant_rebaixats_visorl"
     
     ruta_base, nombre_ext = os.path.splitext(style_path_original)
-    style_path_copia = f"{ruta_base}_MODIFICADO_SVG_PLANTILLA{nombre_ext}"
+    style_path_copia = f"{ruta_base}_plantilla_step54{nombre_ext}"
     # ---------------------
 
-    # 1. Cargar SVG
-    svg_data_url = convertir_svg_a_base64_y_limpiar(svg_path)
-    if not svg_data_url: return
+    # 1. Leer y Parsear SVG
+    if not os.path.exists(svg_path):
+        print(f"¡ERROR! No existe el SVG: {svg_path}")
+        return
+    svg_content = leer_contenido_svg(svg_path)
+    if not svg_content: return
 
-    # 2. Robar Parámetros de la Plantilla
+    # Convertimos el texto del SVG en coordenadas CIM reales
+    svg_rings, svg_frame = parse_svg_geometry(svg_content)
+    if not svg_rings:
+        print("¡ERROR! No se pudieron extraer coordenadas del SVG.")
+        return
+
+    # 2. Robar Parámetros Plantilla
+    if not os.path.exists(style_path_plantilla):
+        print(f"¡ERROR! No existe la plantilla: {style_path_plantilla}")
+        return
     params_plantilla = extraer_parametros_plantilla(style_path_plantilla, nombre_simbolo_plantilla)
 
-    # 3. Preparar Copia
+    # 3. Copiar Estilo
     if not os.path.exists(style_path_original):
         print("¡ERROR! No existe el original.")
         return
@@ -86,13 +87,14 @@ def main():
                 datos_hatch = extraer_datos_hatch(capa)
                 
                 if datos_hatch['color']:
-                    # Offset para mrc_
                     offset_ratio = 0.0 if hatch_index == 0 else 0.5
                     
-                    nueva_capa = build_svg_marker_with_params(
-                        svg_data_url=svg_data_url,
+                    # CONSTRUCCIÓN
+                    nueva_capa = build_svg_geometry_marker(
+                        svg_rings=svg_rings,        # Coordenadas del SVG
+                        svg_frame=svg_frame,        # Frame calculado
                         hatch_color=datos_hatch['color'],
-                        template_params=params_plantilla, # Usamos los params robados
+                        template_params=params_plantilla,
                         offset_ratio=offset_ratio
                     )
                     
@@ -104,9 +106,9 @@ def main():
                     nuevas_capas.append(capa) 
             
             elif capa_tipo == 'CIMSolidFill':
-                nuevas_capas.append(capa) # Conservar fondo
+                nuevas_capas.append(capa) 
             else:
-                nuevas_capas.append(capa) # Conservar otros
+                nuevas_capas.append(capa) 
         
         if simbolo_modificado:
             cim_data['symbolLayers'] = nuevas_capas
