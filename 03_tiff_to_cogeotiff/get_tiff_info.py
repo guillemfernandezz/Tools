@@ -55,7 +55,7 @@ def get_tiff_info(path):
     
     return lista_resultados
 
-path = r"C:\Users\becari.g.fernandez\Desktop\treballs\02_tif_to_cogeotiff\outputs_cog"
+path = r"C:\Users\becari.g.fernandez\Desktop\treballs\02_tif_to_cogeotiff\ArcGIS_COG"
 
 informe = get_tiff_info(path)
 

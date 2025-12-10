@@ -14,4 +14,3 @@ ruta2 = r"C:\Users\becari.g.fernandez\Desktop\treballs\02_tif_to_cogeotiff\outpu
 gdal_utils.mostrar_informe(gdal_utils.inspeccionar_carpeta(ruta[:-7]))
 gdal_utils.mostrar_informe(gdal_utils.inspeccionar_carpeta(ruta2))
 print(gdal_utils.analizar_cog(ruta))
-print(gdal_utils.analizar_cog(ruta2))

@@ -11,8 +11,8 @@ sys.path.append(carpeta_superior)
 from Tools import gdal_utils
 
 # --- RUTAS DE TRABAJO ---
-CARPETA_ORIGEN = r"C:\Users\becari.g.fernandez\Desktop\treballs\02_tif_to_cogeotiff\dades"
-CARPETA_DESTINO = r"C:\Users\becari.g.fernandez\Desktop\treballs\02_tif_to_cogeotiff\outputs_cog"
+CARPETA_ORIGEN = r"C:\Users\becari.g.fernandez\Desktop\treballs\02_tif_to_cogeotiff\output_tif"
+CARPETA_DESTINO = r"C:\Users\becari.g.fernandez\Desktop\treballs\02_tif_to_cogeotiff\ArcGIS_COG"
 NOMBRE_INFORME = "informe_calidad_cogs.txt"
 
 def generar_informe_txt(carpeta_cogs):
