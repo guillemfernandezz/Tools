@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mi Visor COG</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css">
+
+    <style>
+        /* Aqui va el diseño (css) */
+        body {margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;}
+
+        #map {width: 100vw; height: 100vh;}
+
+        #legend {
+            position: absolute; bottom: 30px; right: 20px;
+            background: white; padding: 15px; border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); z-index: 1000;
+        }
+
+        .colorbox {
+            width: 20px; height: 20px; display: inline-block;
+            margin-right: 10px; border: 1px solid #ccc;
+        }
+
+    </style> 
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div id="legend">
+        <h4>Leyenda</h4>
+        <div id="legend.content"></div>
+    </div>
+
+    <div id="popup"></div>
+
+    <script src=""
+</body>
+</html>
