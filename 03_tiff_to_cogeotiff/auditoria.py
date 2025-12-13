@@ -10,8 +10,9 @@ sys.path.append(carpeta_superior)
 from Tools import gdal_utils
 
 # --- CONFIGURA TU CARPETA DE SALIDA DE ARCGIS ---
-CARPETA_COGS = r"C:\Users\becari.g.fernandez\Desktop\treballs\02_tif_to_cogeotiff\ArcGIS_COG" 
+CARPETA_COGS = r"C:\Users\becari.g.fernandez\Desktop\test_output_final"
 
+# r"C:\Users\becari.g.fernandez\Desktop\treballs\02_tif_to_cogeotiff\zzIntento 1\ArcGIS_COG" 
 
 Analisis = []
 
