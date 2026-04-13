@@ -1,151 +1,94 @@
-import arcpy
 import os
-import sys
-import time
-import shutil
+import csv
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
 
-# --- IMPORTACIÓN DE LIBRERÍA "TOOLS" ---
-# Subimos un nivel para encontrar la carpeta 'Tools'
-carpeta_actual = os.path.dirname(os.path.abspath(__file__))
-carpeta_superior = os.path.dirname(carpeta_actual)
-sys.path.append(carpeta_superior)
+def force_pam_injection(tif_path, csv_path):
+    print(f"--- 💉 INYECCIÓN FORZOSA DE RAT EN: {os.path.basename(tif_path)} ---")
 
-from Tools import gdal_utils
-
-def procesar_rasters_de_mapa(ruta_aprx, nombre_mapa, carpeta_destino):
-    
-    # 1. Abrir Proyecto
-    if not os.path.exists(ruta_aprx):
-        print(f"❌ Error: No se encuentra el proyecto: {ruta_aprx}")
+    if not os.path.exists(csv_path):
+        print("❌ ERROR: No encuentro el CSV.")
         return
 
-    print(f"📂 Abriendo proyecto: {ruta_aprx}...")
+    # 1. Leer el CSV (Diccionario Valor -> Texto)
+    data_map = {}
     try:
-        aprx = arcpy.mp.ArcGISProject(ruta_aprx)
-        # Buscar mapa (insensible a mayúsculas)
-        mapa_objetivo = None
-        for m in aprx.listMaps():
-            if m.name.lower() == nombre_mapa.lower():
-                mapa_objetivo = m
-                break
-        
-        if not mapa_objetivo:
-            print(f"❌ Error: No se encontró el mapa '{nombre_mapa}'.")
-            return
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            headers = next(reader) # Leer cabecera
             
+            # Buscamos índices dinámicamente
+            # Asumimos que Value es la primera o se llama 'Value'
+            try:
+                idx_val = next(i for i, h in enumerate(headers) if 'value' in h.lower())
+            except:
+                idx_val = 0 # Fallback al primero
+            
+            # Buscamos texto
+            try:
+                idx_txt = next(i for i, h in enumerate(headers) if 'rang' in h.lower() or 'conc' in h.lower())
+            except:
+                print("❌ ERROR: El CSV no tiene columna de texto ('rang' o 'conc').")
+                return
+
+            print(f"  > Leyendo columnas: Value[{idx_val}], Texto[{idx_txt}]")
+
+            for row in reader:
+                if row:
+                    try:
+                        val = int(float(row[idx_val])) # Asegurar entero
+                        txt = row[idx_txt]
+                        data_map[val] = txt
+                    except:
+                        pass
     except Exception as e:
-        print(f"❌ Error abriendo proyecto: {e}")
+        print(f"❌ Error leyendo CSV: {e}")
         return
 
-    print(f"🗺️  Mapa '{mapa_objetivo.name}' cargado. Escaneando capas...")
+    print(f"  > Datos cargados: {len(data_map)} clases.")
+
+    # 2. Construir el XML PAM desde cero (Lo más seguro)
+    root = ET.Element("PAMDataset")
+    band = ET.SubElement(root, "PAMRasterBand", band="1")
     
-    if not os.path.exists(carpeta_destino):
-        os.makedirs(carpeta_destino)
+    # Aquí está la clave que faltaba en tu archivo:
+    rat = ET.SubElement(band, "GDALRasterAttributeTable")
 
-    # Carpeta temporal
-    carpeta_temp = os.path.join(carpeta_destino, "TEMP_EXPORT")
-    if not os.path.exists(carpeta_temp):
-        os.makedirs(carpeta_temp)
+    # Definición de columnas
+    # Col 0: Value
+    fdef_val = ET.SubElement(rat, "FieldDefn", index="0")
+    ET.SubElement(fdef_val, "Name").text = "Value"
+    ET.SubElement(fdef_val, "Type").text = "0" # Integer
+    ET.SubElement(fdef_val, "Usage").text = "0" 
 
-    conteo = 0
+    # Col 1: Class_Name (El Texto)
+    fdef_txt = ET.SubElement(rat, "FieldDefn", index="1")
+    ET.SubElement(fdef_txt, "Name").text = "Class_Name"
+    ET.SubElement(fdef_txt, "Type").text = "2" # String
+    ET.SubElement(fdef_txt, "Usage").text = "0"
 
-    # 2. Iterar Capas
-    for capa in mapa_objetivo.listLayers():
-        if capa.isRasterLayer:
-            print("-" * 60)
-            print(f"🔎 Analizando capa: '{capa.name}'")
-            
-            try:
-                # --- A. LECTURA DE ATRIBUTOS (NUEVO) ---
-                diccionario_atributos = {}
-                try:
-                    # Campos a ignorar porque se generan solos
-                    ignorar = ['OID', 'Value', 'Count', 'Object_ID', 'Pixel Value', 'Rowid']
-                    campos = [f.name for f in arcpy.ListFields(capa) if f.name not in ignorar]
-                    
-                    if campos:
-                        print(f"   📥 Leyendo atributos originales: {campos}...")
-                        # El primer campo del cursor DEBE ser el valor del pixel para usarlo de clave
-                        with arcpy.da.SearchCursor(capa, ['Value'] + campos) as cursor:
-                            for row in cursor:
-                                val_pixel = int(row[0]) # Clave
-                                # Diccionario: { 'NombreCampo': 'Valor', ... }
-                                datos_fila = dict(zip(campos, row[1:]))
-                                diccionario_atributos[val_pixel] = datos_fila
-                        print(f"   📖 Atributos memorizados para {len(diccionario_atributos)} valores.")
-                    else:
-                        print("   ℹ️  La capa no tiene atributos extra (solo Value/Count).")
-                        
-                except Exception as e_att:
-                    print(f"   ⚠️  No se pudo leer la tabla de atributos (quizás es flotante): {e_att}")
-                
-                # --- B. PREPARAR RUTA FÍSICA ---
-                conn_props = capa.connectionProperties
-                if not conn_props: continue
-                
-                workspace = conn_props.get('connection_info', {}).get('database', '')
-                dataset = conn_props.get('dataset', '')
-                
-                ruta_gdal = ""
-                es_temp = False
+    # Inyectar filas
+    # Es importante ordenar por Value
+    for val in sorted(data_map.keys()):
+        row = ET.SubElement(rat, "Row", index=str(val)) # El index suele ser relativo al orden, no al valor, pero GDAL es flexible
+        ET.SubElement(row, "F").text = str(val)
+        ET.SubElement(row, "F").text = str(data_map[val])
 
-                # Si es GDB -> Exportar a Temp
-                if workspace.endswith('.gdb'):
-                    print("   📦 Origen Geodatabase -> Exportando temporal...")
-                    ruta_temp = os.path.join(carpeta_temp, f"{capa.name}.tif")
-                    
-                    if arcpy.Exists(ruta_temp):
-                        arcpy.management.Delete(ruta_temp)
-                    
-                    arcpy.management.CopyRaster(capa, ruta_temp, pixel_type=None, format="TIFF")
-                    
-                    print("   ⏳ Esperando liberación de archivo...")
-                    time.sleep(2.0) # Pausa importante
-                    
-                    ruta_gdal = ruta_temp
-                    es_temp = True
-                else:
-                    # Archivo físico directo
-                    posible_ruta = os.path.join(workspace, dataset)
-                    if os.path.exists(posible_ruta):
-                        ruta_gdal = posible_ruta
-                    elif os.path.exists(capa.dataSource):
-                        ruta_gdal = capa.dataSource
+    # 3. Escribir al disco
+    xml_str = minidom.parseString(ET.tostring(root)).toprettyxml(indent="  ")
+    xml_path = tif_path + ".aux.xml"
+    
+    try:
+        with open(xml_path, "w", encoding="utf-8") as f:
+            f.write(xml_str)
+        print(f"✅ ¡ÉXITO! XML sobrescrito correctamente en:\n   {xml_path}")
+    except Exception as e:
+        print(f"❌ Error escribiendo archivo: {e}")
 
-                # --- C. LLAMADA A TU LIBRERÍA ---
-                if ruta_gdal and os.path.exists(ruta_gdal):
-                    
-                    # Llamamos a la función pasando el diccionario de atributos
-                    res = gdal_utils.convertir_a_cog_con_tabla(
-                        ruta_entrada=ruta_gdal,
-                        carpeta_destino=carpeta_destino,
-                        inyectar_tabla=True,
-                        diccionario_datos=diccionario_atributos # <--- AQUÍ PASAMOS LOS DATOS
-                    )
-                    
-                    if res: conteo += 1
-                else:
-                    print("   ❌ No se encontró el archivo físico.")
-
-                # Limpieza Temp de este archivo
-                if es_temp:
-                    try: 
-                        if os.path.exists(ruta_gdal): os.remove(ruta_gdal)
-                    except: pass
-
-            except Exception as e:
-                print(f"❌ Error procesando capa '{capa.name}': {e}")
-
-    # Limpieza final carpeta
-    try: shutil.rmtree(carpeta_temp)
-    except: pass
-
-    print(f"\n✅ FIN DEL PROCESO. Rasters convertidos: {conteo}")
-
+# --- EJECUCIÓN ---
 if __name__ == "__main__":
-    # --- CONFIGURACIÓN ---
-    PROYECTO = r"C:\Users\becari.g.fernandez\Desktop\treballs\02_tif_to_cogeotiff\proyecto\tif_to_cogeotiff\tif_to_cogeotiff.aprx"
-    MAPA = "Map"
-    SALIDA = r"C:\Users\becari.g.fernandez\Desktop\test_output_final"
-
-    procesar_rasters_de_mapa(PROYECTO, MAPA, SALIDA)
+    # ¡PON TUS RUTAS REALES AQUÍ!
+    mi_tif = r"C:\Temp\ArcGIS\Exportaciones\Alumini_raster.tif" 
+    mi_csv = r"C:\Temp\ArcGIS\Exportaciones\Alumini_raster.csv"
+    
+    force_pam_injection(mi_tif, mi_csv)
